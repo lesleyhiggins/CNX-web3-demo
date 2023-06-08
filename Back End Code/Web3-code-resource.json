@@ -1,0 +1,78 @@
+%%[
+    SET @wallet = RequestParameter("wallet")
+    
+    /* Retrieve CryptoWallet object records from Salesforce */
+    SET @walletRows = RetrieveSalesforceObjects("CryptoWallet", "Id, WalletAddress", "WalletAddress", "=", @wallet)
+   
+    SET @rowCount = RowCount(@walletRows)
+  
+    var @resultList
+    set @resultList = ""
+  
+    if @rowCount > 0 then
+      var @row, @id
+      set @row = Row(@walletRows, 1) /* there should be just one row returned if Salesforce is properly de-duped */
+      set @id = Field(@row, "Id")
+  
+      /* Retrieve CryptoProduct object records from Salesforce */
+      SET @productRows = RetrieveSalesforceObjects("CryptoProduct", "TokenIdentifier, MetadataBlockchainUrl, OwnerWalletId", "OwnerWalletId", "=", @id)
+      set @productRowCount = rowcount(@productRows)
+      
+      if @productRowCount > 0 then
+        var @j, @productRow, @tokenId, @metaData
+        for @j = 1 to @productRowCount do
+          set @productRow = Row(@productRows, @j) 
+          set @tokenId = Field(@productRow, "TokenIdentifier")
+          set @metaData = Field(@productRow, "MetadataBlockchainUrl")
+  
+          /* Retrieve CryptoProduct object records from Salesforce again based on TokenIdentifier and OwnerWalletId */
+          SET @tokenRows = RetrieveSalesforceObjects("CryptoProduct", "TokenIdentifier, OwnerWalletId", "TokenIdentifier", "=", @tokenId, "OwnerWalletId", "=", @id)
+          set @countTokenId = rowcount(@tokenRows)
+          ]%%
+  
+          <script runat="server">
+            Platform.Load("Core", "1");
+            
+            var url = Platform.Variable.GetValue("@metaData");
+            var tokenId = Platform.Variable.GetValue("@tokenId");
+            
+            try {
+              
+              var result = HTTP.Get(url);
+              
+              var json = Platform.Function.ParseJSON(result.Content);
+              
+              var imageUrl = json.image_url;
+  
+              var item = {
+                  imageUrl: imageUrl,
+                  tokenId: tokenId
+                };
+              
+              var resultList = Platform.Variable.GetValue("@resultList");
+  
+              if(resultList != ""){
+                  resultList += ",";
+                }
+   
+              resultList += Platform.Function.Stringify(item);
+  
+              Platform.Variable.SetValue("@resultList", resultList);
+  
+              } catch(e) {
+                Write("Error occurred: " + Platform.Function.Stringify(e));
+              }
+            </script>
+  
+  %%[
+  
+   next @j
+  
+  output(concat('{"ok":true,"message":[', @resultList, ']}'))
+      else
+        output(concat('{"ok":false,"message":"No products found for OwnerWalletId: ', @id, '"}'))
+      endif
+    else
+      output(concat('{"ok":false,"message":"No records found for wallet: ', @wallet, '"}'))
+    endif
+  ]%%
