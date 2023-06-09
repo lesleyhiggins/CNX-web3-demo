@@ -1,7 +1,13 @@
 # CNX-web3-demo
 Code used for the 2023 CNX Web3 Demo plus extras
 
+Front End Code:
+
+This is the CloudPage in my Demo broken up into sections as they are in the CloudPage (HTML + Content Blocks)
+
 Back End Code:
+
+Place in a JSON Code Resource.
 
 
 Extras not used in Demo:
